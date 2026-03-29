@@ -4,6 +4,10 @@ ARG ALPINE_VERSION=3.22
 FROM rust:alpine${ALPINE_VERSION} AS builder
 
 RUN apk add --no-cache make musl-dev
+
+WORKDIR /redlib
+COPY . .
+
 RUN cargo build --release --locked --bin redlib
 
 FROM alpine:${ALPINE_VERSION} AS release
