@@ -3,10 +3,7 @@ ARG ALPINE_VERSION=3.22
 
 FROM rust:alpine${ALPINE_VERSION} AS builder
 
-RUN apk add --no-cache git make musl-dev perl
-
-WORKDIR /redlib
-
+RUN apk add --no-cache make musl-dev
 RUN cargo build --release --locked --bin redlib
 
 FROM alpine:${ALPINE_VERSION} AS release
