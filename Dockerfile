@@ -3,7 +3,7 @@ ARG ALPINE_VERSION=3.22
 
 FROM rust:alpine${ALPINE_VERSION} AS builder
 
-RUN apk add --no-cache make musl-dev
+RUN apk add --no-cache make musl-dev perl
 
 WORKDIR /redlib
 COPY . .
