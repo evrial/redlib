@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# Grant permission to write to the packages registry
 permissions:
   contents: read
   packages: write
