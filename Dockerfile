@@ -6,6 +6,7 @@ ARG ALPINE_VERSION=3.22
 ########################
 FROM rust:alpine${ALPINE_VERSION} AS builder
 
+RUN apk --print-arch
 RUN apk add --no-cache musl-dev perl make git file
 
 WORKDIR /redlib
