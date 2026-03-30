@@ -32,7 +32,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=${TARGETARCH} \
         "386")      export T="i686-unknown-linux-musl" ;; \
         *) echo "Unsupported: ${TARGETARCH}${TARGETVARIANT}"; exit 1 ;; \
     esac && \
-    # 3. Use cargo zigbuild with -Z build-std
+    # We use -C link-self-contained=no to stop Rust from looking for crt1.o
+    # Zig will provide these files from its own internal musl sysroot.
+    RUSTFLAGS="-C link-self-contained=no -C target-feature=-crt-static" \
     cargo zigbuild --release \
         --target "$T" \
         -Z build-std=std,core,alloc,panic_unwind \
