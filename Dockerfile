@@ -7,10 +7,7 @@ FROM --platform=$BUILDPLATFORM rust:alpine${ALPINE_VERSION} AS builder
 # Install zig and cargo-zigbuild
 RUN apk add --no-cache zig cargo-zigbuild musl-dev git make perl file
 
-# 2. Switch to Nightly and add the source component
-RUN rustup toolchain install nightly && \
-    rustup default nightly && \
-    rustup component add rust-src --toolchain nightly
+RUN rustup component add rust-src
 
 WORKDIR /redlib
 COPY . .
@@ -29,11 +26,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM}
         "linux/riscv64")  export T="riscv64gc-unknown-linux-musl" ;; \
         *) echo "Unsupported platform: ${TARGETPLATFORM}"; exit 1 ;; \
     esac && \
-    cargo zigbuild --release \
-        --target "$T" \
-        -Z build-std=std,core,alloc,panic_unwind \
-        -Z build-std-features=compiler-builtins-mem \
-        --bin redlib && \
+    rustup target add "$T" || true && \
+    # We use -Z build-std to compile the standard library for the target on the fly
+    # This bypasses the "no prebuilt artifacts" error
+    cargo zigbuild --release --target "$T" -Z build-std --bin redlib && \
     cp target/"$T"/release/redlib /usr/local/bin/redlib
 
 # Final verification of the binary architecture
