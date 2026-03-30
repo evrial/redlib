@@ -29,12 +29,12 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM}
         "linux/riscv64")  export T="riscv64gc-unknown-linux-musl" ;; \
         "linux/s390x")    export T="s390x-unknown-linux-musl" ;; \
         "linux/ppc64le")  export T="powerpc64le-unknown-linux-musl" ;; \
-        "linux/386")      export T="i686-unknown-linux-musl" ;; \
+        "linux/386")      export T="i686-unknown-linux-musl";       export EXTRA_RUSTFLAGS="-C link-arg=-latomic" ;; \
         *) echo "Unsupported platform: ${TARGETPLATFORM}"; exit 1 ;; \
     esac && \
     # We use -C link-self-contained=no to stop Rust from looking for crt1.o
     # Zig will provide these files from its own internal musl sysroot.
-    RUSTFLAGS="-C link-self-contained=no -C target-feature=-crt-static" \
+    RUSTFLAGS="-C link-self-contained=no -C target-feature=-crt-static ${EXTRA_RUSTFLAGS}" \
     cargo zigbuild --release \
         --target "$T" \
         -Z build-std=std,core,alloc,panic_unwind \
