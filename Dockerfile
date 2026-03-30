@@ -16,22 +16,21 @@ WORKDIR /redlib
 COPY . .
 
 # Injected by Docker Buildx
-ARG TARGETARCH
-ARG TARGETVARIANT
+ARG TARGETPLATFORM
 
 # Map Docker architectures to Rust/Zig musl triples
-RUN --mount=type=cache,target=/usr/local/cargo/registry,id=registry-${TARGETARCH}${TARGETVARIANT} \
-    --mount=type=cache,target=/redlib/target,id=target-${TARGETARCH}${TARGETVARIANT} \
-    case "${TARGETARCH}${TARGETVARIANT}" in \
-        "amd64")    export T="x86_64-unknown-linux-musl" ;; \
-        "arm64")    export T="aarch64-unknown-linux-musl" ;; \
-        "armv7")    export T="armv7-unknown-linux-musleabihf" ;; \
-        "armv6")    export T="arm-unknown-linux-musleabi" ;; \
-        "riscv64")  export T="riscv64gc-unknown-linux-musl" ;; \
-        "s390x")    export T="s390x-unknown-linux-musl" ;; \
-        "ppc64le")  export T="powerpc64le-unknown-linux-musl" ;; \
-        "386")      export T="i686-unknown-linux-musl" ;; \
-        *) echo "Unsupported: ${TARGETARCH}${TARGETVARIANT}"; exit 1 ;; \
+RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM} \
+    --mount=type=cache,target=/redlib/target,id=target-${TARGETPLATFORM} \
+    case "${TARGETPLATFORM}" in \
+        "linux/amd64")    export T="x86_64-unknown-linux-musl" ;; \
+        "linux/arm64")    export T="aarch64-unknown-linux-musl" ;; \
+        "linux/arm/v7")   export T="armv7-unknown-linux-musleabihf" ;; \
+        "linux/arm/v6")   export T="arm-unknown-linux-musleabi" ;; \
+        "linux/riscv64")  export T="riscv64gc-unknown-linux-musl" ;; \
+        "linux/s390x")    export T="s390x-unknown-linux-musl" ;; \
+        "linux/ppc64le")  export T="powerpc64le-unknown-linux-musl" ;; \
+        "linux/386")      export T="i686-unknown-linux-musl" ;; \
+        *) echo "Unsupported platform: ${TARGETPLATFORM}"; exit 1 ;; \
     esac && \
     # We use -C link-self-contained=no to stop Rust from looking for crt1.o
     # Zig will provide these files from its own internal musl sysroot.
