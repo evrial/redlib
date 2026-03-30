@@ -20,7 +20,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 # Map Docker architectures to Rust/Zig musl triples
-RUN --mount=type=cache,target=/usr/local/cargo/registry,id=${TARGETARCH} \
+RUN --mount=type=cache,target=/usr/local/cargo/registry,id=${TARGETARCH},sharing=locked \
     --mount=type=cache,target=/redlib/target,id=${TARGETARCH} \
     case "${TARGETARCH}${TARGETVARIANT}" in \
         "amd64")    export T="x86_64-unknown-linux-musl" ;; \
