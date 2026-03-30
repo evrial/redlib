@@ -26,10 +26,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM}
         "linux/riscv64")  export T="riscv64gc-unknown-linux-musl" ;; \
         *) echo "Unsupported platform: ${TARGETPLATFORM}"; exit 1 ;; \
     esac && \
-    rustup target add "$T" || true && \
-    # We use -Z build-std to compile the standard library for the target on the fly
-    # This bypasses the "no prebuilt artifacts" error
-    cargo zigbuild --release --target "$T" -Z build-std --bin redlib && \
+    cargo zigbuild --release --target "$T" --bin redlib && \
     cp target/"$T"/release/redlib /usr/local/bin/redlib
 
 # Final verification of the binary architecture
