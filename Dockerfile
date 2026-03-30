@@ -14,13 +14,12 @@ WORKDIR /redlib
 COPY Cargo.lock Cargo.toml ./
 RUN mkdir src && echo "fn main() { panic!(\"why am i running?\") }" > src/main.rs
 RUN cargo build --release --locked --bin redlib
-RUN file /redlib/target/release/redlib
 RUN rm ./src/main.rs && rmdir ./src
 
 # copy the source and build the redlib binary
 COPY . ./
 RUN cargo build --release --locked --bin redlib
-RUN echo "finished building redlib!"
+RUN file /redlib/target/release/redlib
 
 ########################
 ## release image
