@@ -26,6 +26,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM}
         "linux/riscv64")  export T="riscv64gc-unknown-linux-musl" ;; \
         *) echo "Unsupported platform: ${TARGETPLATFORM}"; exit 1 ;; \
     esac && \
+    rustup target add "$T" || true && \
     cargo zigbuild --release --target "$T" --bin redlib && \
     cp target/"$T"/release/redlib /usr/local/bin/redlib
 
