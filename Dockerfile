@@ -6,7 +6,11 @@ FROM --platform=$BUILDPLATFORM rust:alpine${ALPINE_VERSION} AS builder
 
 # Install zig and cargo-zigbuild
 RUN apk add --no-cache zig cargo-zigbuild musl-dev git make perl file
-RUN rustup component add rust-src
+
+# 2. Switch to Nightly and add the source component
+RUN rustup toolchain install nightly && \
+    rustup default nightly && \
+    rustup component add rust-src --toolchain nightly
 
 WORKDIR /redlib
 COPY . .
@@ -26,9 +30,7 @@ RUN case "${TARGETARCH}${TARGETVARIANT}" in \
         "386")      export T="i686-unknown-linux-musl" ;; \
         *) echo "Unsupported: ${TARGETARCH}${TARGETVARIANT}"; exit 1 ;; \
     esac && \
-    rustup target add "$T" || true && \
-    # We use -Z build-std to compile the standard library for the target on the fly
-    # This bypasses the "no prebuilt artifacts" error
+    # 3. Use cargo zigbuild with -Z build-std
     cargo zigbuild --release --target "$T" -Z build-std --bin redlib && \
     cp target/"$T"/release/redlib /usr/local/bin/redlib
 
