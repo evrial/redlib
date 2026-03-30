@@ -6,7 +6,7 @@ ARG ALPINE_VERSION=3.22
 ########################
 FROM rust:alpine${ALPINE_VERSION} AS builder
 
-RUN apk add --no-cache musl-dev perl make git
+RUN apk add --no-cache musl-dev perl make git file
 
 WORKDIR /redlib
 
@@ -14,6 +14,7 @@ WORKDIR /redlib
 COPY Cargo.lock Cargo.toml ./
 RUN mkdir src && echo "fn main() { panic!(\"why am i running?\") }" > src/main.rs
 RUN cargo build --release --locked --bin redlib
+RUN file /redlib/target/release/redlib
 RUN rm ./src/main.rs && rmdir ./src
 
 # copy the source and build the redlib binary
