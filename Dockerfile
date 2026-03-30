@@ -1,5 +1,5 @@
 # supported versions here: https://hub.docker.com/_/rust
-ARG ALPINE_VERSION=3.22
+ARG ALPINE_VERSION=3.23
 
 ########################
 ## builder image
