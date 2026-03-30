@@ -31,7 +31,11 @@ RUN case "${TARGETARCH}${TARGETVARIANT}" in \
         *) echo "Unsupported: ${TARGETARCH}${TARGETVARIANT}"; exit 1 ;; \
     esac && \
     # 3. Use cargo zigbuild with -Z build-std
-    cargo zigbuild --release --target "$T" -Z build-std --bin redlib && \
+    cargo zigbuild --release \
+        --target "$T" \
+        -Z build-std=std,core,alloc,panic_unwind \
+        -Z build-std-features=compiler-builtins-mem \
+        --bin redlib && \
     cp target/"$T"/release/redlib /usr/local/bin/redlib
 
 # Final verification of the binary architecture
