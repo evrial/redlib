@@ -27,7 +27,6 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM}
         *) echo "Unsupported platform: ${TARGETPLATFORM}"; exit 1 ;; \
     esac && \
     rustup target add "$T" || true && \
-    RUSTFLAGS="-C target-feature=+crt-static -C relocation-model=pie" \
     cargo zigbuild --release --target "$T" --bin redlib && \
     cp target/"$T"/release/redlib /usr/local/bin/redlib
 
