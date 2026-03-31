@@ -1,7 +1,7 @@
 name: Auto-Approve & Merge
 on:
   workflow_run:
-    workflows: ["Build and Push"] # Name of your main Docker CI file
+    workflows: ["Build and push Docker image"] # Name of your main Docker CI file
     types: [completed]
 
 jobs:
