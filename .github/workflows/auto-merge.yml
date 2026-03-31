@@ -4,6 +4,10 @@ on:
     workflows: ["Docker Image CI"] # This must match the 'name' in your CI file
     types: [completed]
 
+permissions:
+  pull-requests: write
+  contents: write
+
 jobs:
   merge-on-success:
     runs-on: ubuntu-latest
