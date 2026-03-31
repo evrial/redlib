@@ -73,6 +73,14 @@ jobs:
 
       - name: Create Manifest and Push
         run: |
-          # Combine all the uploaded digests into one multi-arch tag
-          export IMAGES=$(printf 'ghcr.io/${{ github.repository }}@sha256:%s ' $(ls /tmp/digests | sed 's/--/:/g'))
-          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:latest $IMAGES
+          # 1. Clean up the filenames to get raw digests
+          # 2. Re-construct the full image references
+          # 3. Join them into a space-separated list
+          DIGESTS=$(ls /tmp/digests | sed 's/--/:/g')
+          SOURCES=""
+          for digest in $DIGESTS; do
+            SOURCES="$SOURCES ghcr.io/${{ github.repository }}@$digest"
+          done
+          
+          # Push the final multi-arch manifest
+          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:latest $SOURCES
