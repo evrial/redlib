@@ -1,7 +1,7 @@
 name: Auto-Approve and Merge
 on:
   workflow_run:
-    workflows: ["Docker Image CI"] # This must match the 'name' in your CI file
+    workflows: ["Pull Request", "Docker Image CI"] # This must match the 'name' in your CI file
     types: [completed]
 
 permissions:
