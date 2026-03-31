@@ -1,12 +1,13 @@
-name: Auto-Approve & Merge
+name: Auto-Approve and Merge
 on:
   workflow_run:
-    workflows: ["Docker Image CI"]
+    workflows: ["Docker Image CI"] # This must match the 'name' in your CI file
     types: [completed]
 
 jobs:
-  on-success:
+  merge-on-success:
     runs-on: ubuntu-latest
+    # Only merge if the CI passed AND it was triggered by an update bot
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       (github.event.workflow_run.triggering_actor == 'renovate[bot]' || 
@@ -14,8 +15,11 @@ jobs:
     steps:
       - name: Approve and Merge
         run: |
+          # Finds the PR associated with the branch that just finished building
           PR_NUMBER=$(gh pr list --head "${{ github.event.workflow_run.head_branch }}" --json number --jq '.[0].number')
-          gh pr review --approve "$PR_NUMBER"
-          gh pr merge --auto --merge "$PR_NUMBER"
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr review --approve "$PR_NUMBER"
+            gh pr merge --auto --merge "$PR_NUMBER"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
