@@ -18,5 +18,6 @@
       "depNameTemplate": "alpine",
       "datasourceTemplate": "docker"
     }
-  ]
+  ],
+  "ignoreDeps": ["bincode"]
 }
