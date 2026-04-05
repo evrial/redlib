@@ -23,7 +23,7 @@ clap = { version = "4.4.11", default-features = false, features = [
     "env",
     "derive",
 ] }
-regex = "1.10.2"
+regex = "1.12.3"
 serde = { version = "1.0.193", features = ["derive"] }
 cookie = "0.18.0"
 futures-lite = "2.2.0"
