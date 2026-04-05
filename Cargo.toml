@@ -18,7 +18,7 @@ askama = { version = "0.14.0", default-features = false, features = [
     "derive",
 ] }
 cached = { version = "0.54.0", features = ["async"] }
-clap = { version = "4.4.11", default-features = false, features = [
+clap = { version = "4.5.60", default-features = false, features = [
     "std",
     "env",
     "derive",
