@@ -34,7 +34,7 @@ serde_json = "1.0.133"
 tokio = { version = "1.44.2", features = ["full"] }
 time = { version = "0.3.47", features = ["local-offset"] }
 url = "2.5.0"
-rust-embed = { version = "8.1.0", features = ["include-exclude"] }
+rust-embed = { version = "8.11.0", features = ["include-exclude"] }
 libflate = "2.2.1"
 brotli = { version = "7.0.0", features = ["std"] }
 toml = "0.8.8"
