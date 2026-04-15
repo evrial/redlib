@@ -39,7 +39,7 @@ libflate = "2.0.0"
 brotli = { version = "7.0.0", features = ["std"] }
 toml = "0.8.8"
 serde_yaml = "0.9.29"
-build_html = "2.4.0"
+build_html = "2.7.0"
 uuid = { version = "1.6.1", features = ["v4"] }
 base64 = "0.22.1"
 fastrand = "2.0.1"
