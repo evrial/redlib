@@ -579,9 +579,9 @@ dependencies = [
 
 [[package]]
 name = "fake_user_agent"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "913d317e38c6959fc258642eab72be85e99162a5fd19ca6c7b83c0c3c911d2f1"
+checksum = "b525286f3f8402e322df2beaa7328503acdd1ba176985ff854759899c3e9e65f"
 dependencies = [
  "fastrand",
 ]
