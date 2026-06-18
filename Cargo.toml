@@ -13,7 +13,7 @@ rust-version = "1.81"
 default-run = "redlib"
 
 [dependencies]
-askama = { version = "0.14.0", default-features = false, features = [
+askama = { version = "0.16.0", default-features = false, features = [
     "std",
     "derive",
 ] }
