@@ -1550,18 +1550,18 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "revision"
-version = "0.10.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22f53179a035f881adad8c4d58a2c599c6b4a8325b989c68d178d7a34d1b1e4c"
+checksum = "e735a8c2864f0b0fd48a55d0a71c081c7cbef8c8958a4665d8de423f20f2d0cf"
 dependencies = [
  "revision-derive",
 ]
 
 [[package]]
 name = "revision-derive"
-version = "0.10.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f0ec466e5d8dca9965eb6871879677bef5590cf7525ad96cae14376efb75073"
+checksum = "f446f8c55ba240992330b09f69fe9e5ec8a2e1ba266843cb9f59d7bc6037c821"
 dependencies = [
  "proc-macro2",
  "quote",
