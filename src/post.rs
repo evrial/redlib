@@ -33,7 +33,7 @@ static COMMENT_SEARCH_CAPTURE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\
 
 pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 	// Build Reddit API path
-	let mut path: String = format!("{}.json?{}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default());
+	let mut path: String = format!("{}.json?{}&raw_json=1", req.uri().path().replace("/comments/", "%2Fcomments/"), req.uri().query().unwrap_or_default());
 	let sub = req.param("sub").unwrap_or_default();
 	let quarantined = can_access_quarantine(&req, &sub);
 	let url = req.uri().to_string();
@@ -47,7 +47,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 		if default_sort.is_empty() {
 			String::new()
 		} else {
-			path = format!("{}.json?{}&sort={}&raw_json=1", req.uri().path(), req.uri().query().unwrap_or_default(), default_sort);
+			path = format!("{}.json?{}&sort={}&raw_json=1", req.uri().path().replace("/comments/", "%2Fcomments/"), req.uri().query().unwrap_or_default(), default_sort);
 			default_sort
 		}
 	});
