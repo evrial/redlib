@@ -6,7 +6,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     make \
     cmake \
-    g++ \
     perl \
     && rm -rf /var/lib/apt/lists/*
 
