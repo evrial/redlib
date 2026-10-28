@@ -36,18 +36,14 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM}
     cp target/"${RUST_TARGET}"/release/redlib /usr/local/bin/redlib
 
 ########################
-## Release Image
+## Release Image (Distroless)
 ########################
-FROM alpine AS release
-RUN apk add --no-cache ca-certificates
+# Using the nonroot variant which includes CA certificates and a pre-configured non-root user (UID 65532)
+FROM gcr.io/distroless/static-debian12:nonroot
+
 COPY --from=builder /usr/local/bin/redlib /usr/local/bin/redlib
 
-# Security: Non-root user
-RUN adduser --home /nonexistent --no-create-home --disabled-password redlib
-USER redlib
-
 EXPOSE 8080
-HEALTHCHECK --interval=1m --timeout=3s CMD wget --spider -q http://localhost:8080/settings || exit 1
 
 LABEL org.opencontainers.image.title="Redlib" \
       org.opencontainers.image.description="Private front-end for Reddit written in Rust" \
@@ -55,4 +51,6 @@ LABEL org.opencontainers.image.title="Redlib" \
       org.opencontainers.image.source="https://github.com/redlib-org/redlib" \
       org.opencontainers.image.licenses="AGPL-3.0"
 
-CMD ["/usr/local/bin/redlib"]
+USER nonroot:nonroot
+
+ENTRYPOINT ["/usr/local/bin/redlib"]
