@@ -1,5 +1,7 @@
 # Use the official cargo-zigbuild image which natively cross-compiles all targets from any host
 FROM --platform=$BUILDPLATFORM ghcr.io/rust-cross/cargo-zigbuild:latest AS builder
+ENV ZIG_VERSION=0.13.0
+
 RUN rustup default stable
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,7 +32,6 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM} \
     --mount=type=cache,target=/redlib/target,id=target-${TARGETPLATFORM} \
     . /etc/environment && \
-    export CXXFLAGS="-Wno-nullability-completeness" && \
     echo "Building for target: ${RUST_TARGET}" && \
     rustup target add "${RUST_TARGET}" && \
     cargo zigbuild --release --target "${RUST_TARGET}" --bin redlib && \
