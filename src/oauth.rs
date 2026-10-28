@@ -69,9 +69,32 @@ pub struct Oauth {
 }
 
 impl Oauth {
-	/// Create a new OAuth client
+	/// Create a new OAuth client, retrying until Reddit lets us in.
+	///
+	/// Never gives up: Reddit block waves (revoked/limited clients, IP
+	/// reputation) can last hours, and exiting here (upstream redlib#582
+	/// does `std::process::exit(1)` after 10 failures) used to kill the
+	/// whole service for the duration of the wave. Callers that must not
+	/// block use [`Oauth::try_new`] instead.
 	pub(crate) async fn new() -> Self {
-		// Try MobileSpoofAuth first, then fall back to GenericWebAuth
+		let mut rounds = 0_u32;
+		loop {
+			if let Ok(oauth) = Self::try_new().await {
+				return oauth;
+			}
+			rounds += 1;
+			// One round is ~10 attempts over ~50s. Back off between rounds so
+			// we don't hammer Reddit while it is blocking us, but still recover
+			// within minutes once a wave lifts.
+			let delay = if rounds < 12 { Duration::from_secs(30) } else { Duration::from_secs(300) };
+			warn!("[⏳] Reddit is refusing OAuth clients (block wave?). Retrying in {delay:?}...");
+			tokio::time::sleep(delay).await;
+		}
+	}
+
+	/// One bounded round of OAuth client creation: MobileSpoofAuth first,
+	/// then GenericWebAuth. Returns `Err(())` if Reddit refused them all.
+	pub(crate) async fn try_new() -> Result<Self, ()> {
 		let mut failure_count = 0;
 		let mut backend = OauthBackendImpl::MobileSpoof(MobileSpoofAuth::new());
 
@@ -80,7 +103,7 @@ impl Oauth {
 			match attempt {
 				Ok(Ok(oauth)) => {
 					info!("[✅] Successfully created OAuth client");
-					return oauth;
+					return Ok(oauth);
 				}
 				Ok(Err(e)) => {
 					error!(
@@ -105,13 +128,26 @@ impl Oauth {
 				backend = OauthBackendImpl::GenericWeb(GenericWebAuth::new());
 			}
 
-			// Crash after 10 total failures
 			if failure_count >= 10 {
 				error!("[⛔] Failed to create OAuth client (mobile + generic)");
-				std::process::exit(1);
+				return Err(());
 			}
 
 			tokio::time::sleep(OAUTH_TIMEOUT).await;
+		}
+	}
+
+	/// Placeholder used while no real OAuth client could be created (Reddit
+	/// block wave). Carries plausible device headers but no Authorization,
+	/// so requests fail as redlib error pages instead of taking the server
+	/// down.
+	pub(crate) fn placeholder() -> Self {
+		let backend = OauthBackendImpl::MobileSpoof(MobileSpoofAuth::new());
+		let headers_map = backend.get_headers();
+		Self {
+			headers_map,
+			expires_in: 300,
+			backend,
 		}
 	}
 
@@ -163,8 +199,9 @@ pub async fn token_daemon() {
 		// Get expiry time - be sure to not hold the read lock
 		let expires_in = { OAUTH_CLIENT.load_full().expires_in };
 
-		// sleep for the expiry time minus 2 minutes
-		let duration = Duration::from_secs(expires_in - 120);
+		// sleep for the expiry time minus 2 minutes (never less than a minute,
+		// and never underflow on a placeholder/short-lived client)
+		let duration = Duration::from_secs(expires_in.saturating_sub(120).max(60));
 
 		info!("[⏳] Waiting for {duration:?} seconds before refreshing OAuth token...");
 
@@ -189,6 +226,27 @@ pub async fn force_refresh_token() {
 	let new_client = Oauth::new().await;
 	OAUTH_CLIENT.swap(new_client.into());
 	OAUTH_RATELIMIT_REMAINING.store(99, Ordering::SeqCst);
+	OAUTH_IS_ROLLING_OVER.store(false, Ordering::SeqCst);
+}
+
+/// Bounded variant of [`force_refresh_token`] for callers on a critical path
+/// (e.g. the startup rate limit check): give up after one round instead of
+/// blocking until the Reddit block wave lifts. The background refresher keeps
+/// retrying either way.
+
+pub async fn try_refresh_token() {
+	if OAUTH_IS_ROLLING_OVER.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+		trace!("Skipping refresh token roll over, already in progress");
+		return;
+	}
+
+	trace!("Rolling over refresh token. Current rate limit: {}", OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst));
+	if let Ok(new_client) = Oauth::try_new().await {
+		OAUTH_CLIENT.swap(new_client.into());
+		OAUTH_RATELIMIT_REMAINING.store(99, Ordering::SeqCst);
+	} else {
+		warn!("[⚠️] Could not refresh OAuth client (Reddit refusing?), keeping current one");
+	}
 	OAUTH_IS_ROLLING_OVER.store(false, Ordering::SeqCst);
 }
 

@@ -55,6 +55,7 @@ tegen = "0.1.4"
 serde_urlencoded = "0.7.1"
 chrono = { version = "0.4.39", default-features = false, features = ["std"] }
 htmlescape = "0.3.1"
+scraper = { version = "0.27.0", default-features = false }
 bincode = "1.3.3"
 base2048 = "2.0.2"
 revision = "0.17.0"

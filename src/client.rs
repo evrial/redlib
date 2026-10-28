@@ -1,5 +1,5 @@
 use crate::dbg_msg;
-use crate::oauth::{force_refresh_token, token_daemon, Oauth, OauthBackendImpl};
+use crate::oauth::{force_refresh_token, token_daemon, try_refresh_token, Oauth, OauthBackendImpl};
 use crate::server::RequestExt;
 use crate::utils::{format_url, Post};
 use arc_swap::ArcSwap;
@@ -13,8 +13,9 @@ use serde_json::Value;
 use std::borrow::Cow;
 use std::result::Result;
 use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicBool, AtomicU16};
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64};
 use std::sync::LazyLock;
+use std::time::Duration;
 use wreq::dns::{Addrs, Name, Resolve, Resolving};
 use wreq::redirect::Policy;
 use wreq::{header as wreq_header, Client as WreqClient, Method, Response as WreqResponse};
@@ -33,14 +34,33 @@ const ALTERNATIVE_REDDIT_DNS_HOST: &str = "dualstack.reddit.map.fastly.net";
 pub static CLIENT: LazyLock<WreqClient> = LazyLock::new(build_client);
 
 pub static OAUTH_CLIENT: LazyLock<ArcSwap<Oauth>> = LazyLock::new(|| {
-	let client = block_on(Oauth::new());
-	tokio::spawn(token_daemon());
-	ArcSwap::new(client.into())
+	// Wait briefly for a real client so startup checks and the first requests
+	// are warm. If Reddit is in a block wave this can fail for hours (upstream
+	// redlib#582 exit(1)s here, killing the service), so fall back to a
+	// placeholder and keep retrying in the background: the server stays up and
+	// renders error pages until a token lands.
+	let initial = block_on(async { tokio::time::timeout(Duration::from_secs(30), Oauth::new()).await });
+	match initial {
+		Ok(client) => {
+			tokio::spawn(token_daemon());
+			ArcSwap::new(client.into())
+		}
+		Err(_) => {
+			warn!("[⏳] No OAuth client yet (Reddit blocking us?). Serving error pages and retrying in the background.");
+			tokio::spawn(force_refresh_token());
+			tokio::spawn(token_daemon());
+			ArcSwap::new(Oauth::placeholder().into())
+		}
+	}
 });
 
 pub static OAUTH_RATELIMIT_REMAINING: AtomicU16 = AtomicU16::new(99);
 
 pub static OAUTH_IS_ROLLING_OVER: AtomicBool = AtomicBool::new(false);
+
+/// Unix time until which the `/comments/` JSON API is assumed blocked, see `shreddit.rs`.
+static COMMENTS_API_BLOCKED_UNTIL: AtomicU64 = AtomicU64::new(0);
+const COMMENTS_API_RETRY_SECS: u64 = 3600;
 
 const URL_PAIRS: [(&str, &str); 2] = [
 	(ALTERNATIVE_REDDIT_URL_BASE, ALTERNATIVE_REDDIT_URL_BASE_HOST),
@@ -77,8 +97,10 @@ pub fn build_client() -> WreqClient {
 	// Keeping this list short to aid in privacy.
 	// The more emulations, the more unique a fingerprint each instance has.
 	// But some emulations should increase evasiveness.
-	let emulation = [Profile::Chrome145, Profile::Firefox147];
-	let emulation_platform = [Platform::Android, Platform::Windows];
+	// Desktop platforms only: reddit.com serves mobile clients 10 comments per
+	// request instead of 25 (see shreddit.rs).
+	let emulation = [Profile::Chrome149, Profile::Firefox151];
+	let emulation_platform = [Platform::Windows, Platform::MacOS];
 
 	let rand = fastrand::usize(..);
 	let emulation = Emulation::builder()
@@ -403,13 +425,21 @@ fn comments_logical_path(path: &str) -> String {
 }
 
 /// Make a request to a Reddit API and parse the JSON response
-#[cached(size = 100, time = 30, result = true)]
+#[cached(size = 100, time = 60, result = true)]
 pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 	// Closure to quickly build errors
 	let err = |msg: &str, e: String, path: String| -> Result<Value, String> {
 		// eprintln!("{} - {}: {}", url, msg, e);
 		Err(format!("{msg}: {e} | {path}"))
 	};
+
+	// While the comments API is blocked, skip straight to scraping instead of wasting a request.
+	// Cursors come from scraped pages' "More comments" links, which only the scraper understands.
+	let is_comments = path.contains("/comments/");
+	let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+	if is_comments && (crate::utils::param(&path, "cursor").is_some() || now < COMMENTS_API_BLOCKED_UNTIL.load(Ordering::Relaxed)) {
+		return Box::pin(crate::shreddit::thread(path.clone(), quarantine)).await;
+	}
 
 	// First, handle rolling over the OAUTH_CLIENT if need be.
 	let current_rate_limit = OAUTH_RATELIMIT_REMAINING.load(Ordering::SeqCst);
@@ -425,6 +455,14 @@ pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 	match reddit_get(path.clone(), quarantine).await {
 		Ok(response) => {
 			let status = response.status();
+
+			// Reddit's network security block is an HTML page; private/quarantined subs are JSON 403s
+			let is_html = response.headers().get(wreq_header::CONTENT_TYPE).is_some_and(|v| v.as_bytes().starts_with(b"text/html"));
+			if is_comments && status == 403 && is_html {
+				warn!("Comments API blocked, scraping comments for the next {COMMENTS_API_RETRY_SECS}s");
+				COMMENTS_API_BLOCKED_UNTIL.store(now + COMMENTS_API_RETRY_SECS, Ordering::Relaxed);
+				return Box::pin(crate::shreddit::thread(path.clone(), quarantine)).await;
+			}
 
 			let reset: Option<String> = if let (Some(remaining), Some(reset), Some(used)) = (
 				response.headers().get("x-ratelimit-remaining").and_then(|val| val.to_str().ok().map(|s| s.to_string())),
@@ -482,7 +520,9 @@ pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 								// OAuth token has expired; http status 401
 								if json["message"] == "Unauthorized" {
 									error!("Forcing a token refresh");
-									let () = force_refresh_token().await;
+									// Spawn instead of awaiting: the refresh retries until
+									// Reddit lets us in, and blocking here would hang the page.
+									tokio::spawn(force_refresh_token());
 									return Err("OAuth token has expired. Please refresh the page!".to_string());
 								}
 
@@ -510,11 +550,7 @@ pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 						}
 						Err(e) => {
 							error!("Got an invalid response from reddit {e}. Status code: {status}");
-							if status.is_server_error() {
-								Err("Reddit is having issues, check if there's an outage".to_string())
-							} else {
-								err("Failed to parse page JSON data", e.to_string(), path)
-							}
+							Err(non_json_response_error(status.as_u16(), &e.to_string(), &path))
 						}
 					}
 				}
@@ -522,6 +558,19 @@ pub async fn json(path: String, quarantine: bool) -> Result<Value, String> {
 			}
 		}
 		Err(e) => err("Couldn't send request to Reddit", e, path),
+	}
+}
+
+/// Turn a non-JSON Reddit response into a message that names the real cause.
+/// Reddit's block page is HTML with status 403, which used to surface as a
+/// confusing JSON parse error.
+fn non_json_response_error(status: u16, parse_error: &str, path: &str) -> String {
+	if status == 403 {
+		format!("Reddit blocked this request (403 Forbidden): Reddit now requires a logged-in session for this endpoint | {path}")
+	} else if (500..=599).contains(&status) {
+		"Reddit is having issues, check if there's an outage".to_string()
+	} else {
+		format!("Failed to parse page JSON data: {parse_error} | {path}")
 	}
 }
 
@@ -549,7 +598,8 @@ pub async fn rate_limit_check() -> Result<(), String> {
 	}
 	// Now, we switch out the OAuth client.
 	// This checks for the IP rate limit association.
-	force_refresh_token().await;
+	// Bounded: an ongoing block wave must not wedge startup.
+	try_refresh_token().await;
 	// Now, check a new sub to break cache.
 	self_check("rust").await?;
 	// Again, assert the rate limit check.
