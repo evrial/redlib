@@ -2,7 +2,7 @@
 FROM --platform=$BUILDPLATFORM rust:alpine AS builder
 
 # Install zig and cargo-zigbuild
-RUN apk add --no-cache zig cargo-zigbuild musl-dev git make perl file
+RUN apk add --no-cache zig cargo-zigbuild musl-dev git cmake perl
 
 RUN rustup default stable
 
