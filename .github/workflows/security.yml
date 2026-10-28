@@ -6,11 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
   schedule:
-    # Run weekly on Mondays at midnight to catch newly disclosed vulnerabilities in dependencies
-    - cron: '0 0 * * 1'
+    - cron: '0 0 * * 1' # Every Monday
 
 permissions:
   contents: read
+  issues: write # Required for automated issue creation on schedule
 
 jobs:
   audit:
