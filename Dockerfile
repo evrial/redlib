@@ -14,22 +14,20 @@ WORKDIR /redlib
 # Injected automatically by Docker Buildx for each platform
 ARG TARGETPLATFORM
 
-# Helper script block to map TARGETPLATFORM to Rust target cleanly
-RUN case "${TARGETPLATFORM}" in \
-        "linux/amd64")   echo "RUST_TARGET=x86_64-unknown-linux-musl" >> /etc/environment ;; \
-        "linux/arm64")   echo "RUST_TARGET=aarch64-unknown-linux-musl" >> /etc/environment ;; \
-        "linux/arm/v7")  echo "RUST_TARGET=armv7-unknown-linux-musleabihf" >> /etc/environment ;; \
-        "linux/riscv64") echo "RUST_TARGET=riscv64gc-unknown-linux-musl" >> /etc/environment ;; \
-        *) echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1 ;; \
-    esac
-
-# 1. Copy full source code directly (cargo caching makes dependency compilation fast anyway)
+# 1. Copy full source code directly
 COPY . .
 
-# 2. Add rust target and build release binary
+# 2. Map target platform, add rust target, and build release binary using BuildKit cache mounts
 RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM} \
     --mount=type=cache,target=/redlib/target,id=target-${TARGETPLATFORM} \
-    . /etc/environment && \
+    set -e; \
+    case "${TARGETPLATFORM}" in \
+        "linux/amd64")    RUST_TARGET="x86_64-unknown-linux-musl" ;; \
+        "linux/arm64")    RUST_TARGET="aarch64-unknown-linux-musl" ;; \
+        "linux/arm/v7")   RUST_TARGET="armv7-unknown-linux-musleabihf" ;; \
+        "linux/riscv64")  RUST_TARGET="riscv64gc-unknown-linux-musl" ;; \
+        *) echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1 ;; \
+    esac; \
     echo "Building for target: ${RUST_TARGET}" && \
     rustup target add "${RUST_TARGET}" && \
     cargo zigbuild --release --target "${RUST_TARGET}" --bin redlib && \
