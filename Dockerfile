@@ -1,15 +1,17 @@
-# Use the official Rust image as a stable base for the builder
-FROM --platform=$BUILDPLATFORM rust:alpine AS builder
-
-# Install zig and cargo-zigbuild
-RUN apk add --no-cache zig cargo-zigbuild musl-dev git make cmake
+# Use the official cargo-zigbuild image which natively cross-compiles all targets from any host
+FROM --platform=$BUILDPLATFORM ghcr.io/rust-cross/cargo-zigbuild:latest AS builder
 
 RUN rustup default stable
 
-WORKDIR /redlib
-COPY . .
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    make \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
 
-# Injected by Docker Buildx
+WORKDIR /redlib
+
+# Injected automatically by Docker Buildx for each platform
 ARG TARGETPLATFORM
 
 # Helper script block to map TARGETPLATFORM to Rust target cleanly
