@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM}
 ## Release Image (Distroless)
 ########################
 # Using the nonroot variant which includes CA certificates and a pre-configured non-root user (UID 65532)
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot-${TARGETARCH:-amd64}
 
 COPY --from=builder /usr/local/bin/redlib /usr/local/bin/redlib
 
