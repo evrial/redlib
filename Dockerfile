@@ -31,6 +31,7 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry,id=reg-${TARGETPLATFORM} \
     --mount=type=cache,target=/redlib/target,id=target-${TARGETPLATFORM} \
     . /etc/environment && \
+    export CXXFLAGS="-Wno-nullability-completeness" && \
     echo "Building for target: ${RUST_TARGET}" && \
     rustup target add "${RUST_TARGET}" && \
     cargo zigbuild --release --target "${RUST_TARGET}" --bin redlib && \
