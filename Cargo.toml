@@ -57,7 +57,7 @@ chrono = { version = "0.4.39", default-features = false, features = ["std"] }
 htmlescape = "0.3.1"
 bincode = "1.3.3"
 base2048 = "2.0.2"
-revision = "0.17.0"
+revision = "0.30.0"
 fake_user_agent = "0.2.2"
 wreq = { version = "0.16.1", features = ["brotli", "gzip", "deflate", "zstd", "json", "stream", "socks"] }
 wreq-util = { version = "0.2.0" }
